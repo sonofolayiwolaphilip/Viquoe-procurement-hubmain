@@ -1,0 +1,227 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  BUYER
+  SUPPLIER
+  FINANCE
+}
+
+enum OrderStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          UserRole  @default(BUYER)
+  company       String?
+  phone         String?
+  address       String?
+  city          String?
+  country       String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  orders        Order[]
+  cartItems     CartItem[]
+  suppliedProducts Product[] @relation("SupplierProducts")
+  invoices      Invoice[]
+  payments      Payment[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  image       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products Product[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  sku         String   @unique
+  image       String?
+  stock       Int      @default(0)
+  minOrder    Int      @default(1)
+  isActive    Boolean  @default(true)
+  categoryId  String
+  supplierId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category    Category     @relation(fields: [categoryId], references: [id])
+  supplier    User         @relation("SupplierProducts", fields: [supplierId], references: [id])
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  orderNumber   String      @unique
+  userId        String
+  status        OrderStatus @default(PENDING)
+  totalAmount   Decimal     @db.Decimal(10, 2)
+  shippingCost  Decimal?    @db.Decimal(10, 2)
+  taxAmount     Decimal?    @db.Decimal(10, 2)
+  notes         String?
+  shippingAddress String?
+  expectedDelivery DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+  invoices   Invoice[]
+  payments   Payment[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  totalPrice Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([orderId, productId])
+}
+
+model Invoice {
+  id          String        @id @default(cuid())
+  invoiceNumber String      @unique
+  orderId     String
+  userId      String
+  status      InvoiceStatus @default(DRAFT)
+  subtotal    Decimal       @db.Decimal(10, 2)
+  taxAmount   Decimal       @db.Decimal(10, 2)
+  totalAmount Decimal       @db.Decimal(10, 2)
+  dueDate     DateTime
+  paidAt      DateTime?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  order    Order     @relation(fields: [orderId], references: [id])
+  user     User      @relation(fields: [userId], references: [id])
+  payments Payment[]
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  paymentReference String       @unique
+  orderId         String?
+  invoiceId       String?
+  userId          String
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("NGN")
+  status          PaymentStatus @default(PENDING)
+  paymentMethod   String?
+  paystackRef     String?
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  order   Order?   @relation(fields: [orderId], references: [id])
+  invoice Invoice? @relation(fields: [invoiceId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+}
