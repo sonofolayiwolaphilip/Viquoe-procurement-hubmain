@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@auth/core": "latest",
+    "@auth/prisma-adapter": "^2.10.0",
     "@hookform/resolvers": "latest",
     "@jest/globals": "latest",
     "@next-auth/prisma-adapter": "latest",

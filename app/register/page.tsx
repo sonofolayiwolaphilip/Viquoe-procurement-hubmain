@@ -32,7 +32,21 @@ export default function RegisterPage() {
     businessSize: "",
   })
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [errors, setErrors] = useState({
+    organizationName: "",
+    organizationType: "",
+    businessSize: "",
+    email: "",
+    contactPerson: "",
+    phone: "",
+    businessRegistration: "",
+    address: "",
+    description: "",
+    password: "",
+    confirmPassword: "",
+    agreeToTerms: "",
+    general: "",
+  })
   const [success, setSuccess] = useState(false)
 
   const router = useRouter()
@@ -48,31 +62,73 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setError("")
+    let newErrors = { ...errors, general: "" }
+    // Field-level validation
+    if (!formData.organizationName) newErrors.organizationName = "Required"
+    else newErrors.organizationName = ""
+    if (!formData.organizationType) newErrors.organizationType = "Required"
+    else newErrors.organizationType = ""
+    if (userType === "buyer" && !formData.businessSize) newErrors.businessSize = "Required"
+    else if (userType === "buyer") newErrors.businessSize = ""
+    if (!formData.email) newErrors.email = "Required"
+    else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email)) newErrors.email = "Invalid email address"
+    else newErrors.email = ""
+    if (!formData.contactPerson) newErrors.contactPerson = "Required"
+    else newErrors.contactPerson = ""
+    if (!formData.phone) newErrors.phone = "Required"
+    else newErrors.phone = ""
+    if (!formData.businessRegistration) newErrors.businessRegistration = "Required"
+    else newErrors.businessRegistration = ""
+    if (!formData.address) newErrors.address = "Required"
+    else newErrors.address = ""
+    if (userType === "supplier" && !formData.description) newErrors.description = "Required"
+    else if (userType === "supplier") newErrors.description = ""
+    if (!formData.password) newErrors.password = "Required"
+    else if (formData.password.length < 6) newErrors.password = "Password must be at least 6 characters"
+    else newErrors.password = ""
+    if (!formData.confirmPassword) newErrors.confirmPassword = "Required"
+    else if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Passwords do not match"
+    else newErrors.confirmPassword = ""
+    if (!formData.agreeToTerms) newErrors.agreeToTerms = "You must agree to the terms"
+    else newErrors.agreeToTerms = ""
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match")
-      setIsLoading(false)
-      return
-    }
-
-    if (!formData.agreeToTerms) {
-      setError("Please agree to the terms and conditions")
+    // If any errors, set and return
+    const hasError = Object.values(newErrors).some((v) => v)
+    setErrors(newErrors)
+    if (hasError) {
       setIsLoading(false)
       return
     }
 
     try {
-      // Simulate registration
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-      setSuccess(true)
-
-      // Redirect to login after success
-      setTimeout(() => {
-        router.push("/login")
-      }, 2000)
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.contactPerson,
+          email: formData.email,
+          password: formData.password,
+          role: userType === "buyer" ? "BUYER" : "SUPPLIER",
+          company: formData.organizationName,
+          phone: formData.phone,
+          address: formData.address,
+          organizationType: formData.organizationType,
+          businessRegistration: formData.businessRegistration,
+          description: formData.description,
+          businessSize: formData.businessSize,
+        }),
+      })
+      if (response.ok) {
+        setSuccess(true)
+        setTimeout(() => {
+          router.push("/login")
+        }, 2000)
+      } else {
+        const data = await response.json()
+        setErrors((prev) => ({ ...prev, general: data.error || "Registration failed. Please try again." }))
+      }
     } catch (err) {
-      setError("Registration failed. Please try again.")
+      setErrors((prev) => ({ ...prev, general: "Registration failed. Please try again." }))
     } finally {
       setIsLoading(false)
     }
@@ -164,9 +220,9 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {error && (
+            {errors.general && (
               <Alert variant="destructive" className="mb-6">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>{errors.general}</AlertDescription>
               </Alert>
             )}
 
@@ -181,8 +237,8 @@ export default function RegisterPage() {
                     value={formData.organizationName}
                     onChange={(e) => updateFormData("organizationName", e.target.value)}
                     placeholder={userType === "buyer" ? "First Bank of Nigeria" : "ABC Supplies Ltd"}
-                    required
                   />
+                  {errors.organizationName && <span className="text-xs text-red-500">{errors.organizationName}</span>}
                 </div>
 
                 <div className="space-y-2">
@@ -216,6 +272,7 @@ export default function RegisterPage() {
                       )}
                     </SelectContent>
                   </Select>
+                  {errors.organizationType && <span className="text-xs text-red-500">{errors.organizationType}</span>}
                 </div>
               </div>
 
@@ -233,6 +290,7 @@ export default function RegisterPage() {
                       <SelectItem value="large">Large (250+ employees)</SelectItem>
                     </SelectContent>
                   </Select>
+                  {errors.businessSize && <span className="text-xs text-red-500">{errors.businessSize}</span>}
                 </div>
               )}
 
@@ -245,8 +303,8 @@ export default function RegisterPage() {
                     value={formData.email}
                     onChange={(e) => updateFormData("email", e.target.value)}
                     placeholder="contact@organization.com"
-                    required
                   />
+                  {errors.email && <span className="text-xs text-red-500">{errors.email}</span>}
                 </div>
 
                 <div className="space-y-2">
@@ -256,8 +314,8 @@ export default function RegisterPage() {
                     value={formData.contactPerson}
                     onChange={(e) => updateFormData("contactPerson", e.target.value)}
                     placeholder="John Doe"
-                    required
                   />
+                  {errors.contactPerson && <span className="text-xs text-red-500">{errors.contactPerson}</span>}
                 </div>
               </div>
 
@@ -269,8 +327,8 @@ export default function RegisterPage() {
                     value={formData.phone}
                     onChange={(e) => updateFormData("phone", e.target.value)}
                     placeholder="+234 800 000 0000"
-                    required
                   />
+                  {errors.phone && <span className="text-xs text-red-500">{errors.phone}</span>}
                 </div>
 
                 <div className="space-y-2">
@@ -280,8 +338,8 @@ export default function RegisterPage() {
                     value={formData.businessRegistration}
                     onChange={(e) => updateFormData("businessRegistration", e.target.value)}
                     placeholder="RC123456"
-                    required
                   />
+                  {errors.businessRegistration && <span className="text-xs text-red-500">{errors.businessRegistration}</span>}
                 </div>
               </div>
 
@@ -292,8 +350,8 @@ export default function RegisterPage() {
                   value={formData.address}
                   onChange={(e) => updateFormData("address", e.target.value)}
                   placeholder="Complete business address"
-                  required
                 />
+                {errors.address && <span className="text-xs text-red-500">{errors.address}</span>}
               </div>
 
               {userType === "supplier" && (
@@ -304,8 +362,8 @@ export default function RegisterPage() {
                     value={formData.description}
                     onChange={(e) => updateFormData("description", e.target.value)}
                     placeholder="Describe your products and services"
-                    required
                   />
+                  {errors.description && <span className="text-xs text-red-500">{errors.description}</span>}
                 </div>
               )}
 
@@ -317,8 +375,8 @@ export default function RegisterPage() {
                     type="password"
                     value={formData.password}
                     onChange={(e) => updateFormData("password", e.target.value)}
-                    required
                   />
+                  {errors.password && <span className="text-xs text-red-500">{errors.password}</span>}
                 </div>
 
                 <div className="space-y-2">
@@ -328,8 +386,8 @@ export default function RegisterPage() {
                     type="password"
                     value={formData.confirmPassword}
                     onChange={(e) => updateFormData("confirmPassword", e.target.value)}
-                    required
                   />
+                  {errors.confirmPassword && <span className="text-xs text-red-500">{errors.confirmPassword}</span>}
                 </div>
               </div>
 
@@ -349,6 +407,7 @@ export default function RegisterPage() {
                     Privacy Policy
                   </Link>
                 </Label>
+                {errors.agreeToTerms && <span className="text-xs text-red-500">{errors.agreeToTerms}</span>}
               </div>
 
               <Button type="submit" className="w-full" disabled={isLoading}>

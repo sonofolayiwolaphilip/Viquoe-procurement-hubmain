@@ -72,14 +72,34 @@ export default function CartPage() {
 
   const handleSubmitOrder = async () => {
     setIsSubmitting(true)
-
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-      setOrderSuccess(true)
-      setCartItems([])
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: cartItems.map((item) => ({
+            productId: item.id,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          urgency: orderDetails.urgency,
+          deliveryAddress: orderDetails.deliveryAddress,
+          contactPerson: orderDetails.contactPerson,
+          phone: orderDetails.phone,
+          notes: orderDetails.notes,
+          paymentTerms: orderDetails.paymentTerms,
+        }),
+      })
+      if (response.ok) {
+        setOrderSuccess(true)
+        setCartItems([])
+      } else {
+        const data = await response.json()
+        alert(data.error || "Order submission failed.")
+      }
     } catch (error) {
       console.error("Order submission failed:", error)
+      alert("Order submission failed. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
